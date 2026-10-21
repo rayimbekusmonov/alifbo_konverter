@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alifbo konvertor</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--text:#1d1d1b;--muted:#6b6a64;--line:#dcdad2;--accent:#0f6e56;--accent-text:#fff;--mark:#fff1b8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161715;--card:#202220;--text:#ecebe6;--muted:#9a998f;--line:#3a3c38;--accent:#3ab08f;--accent-text:#0b1a15;--mark:#4a4113;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#161715;--card:#202220;--text:#ecebe6;--muted:#9a998f;--line:#3a3c38;--accent:#3ab08f;--accent-text:#0b1a15;--mark:#4a4113;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+main{max-width:980px;margin:0 auto;padding:28px 16px 40px}
+h1{font-size:1.6rem;margin:0 0 4px}
+p.sub{margin:0 0 20px;color:var(--muted)}
+.rules{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.rules span{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 10px;font-size:.95rem}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:var(--card);color:var(--text);padding:8px 14px;font:inherit;cursor:pointer}
+.seg button.on{background:var(--accent);color:var(--accent-text)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:720px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column}
+.panel label{font-size:.85rem;color:var(--muted);margin-bottom:6px}
+textarea,.out{width:100%;min-height:260px;border:0;outline:0;resize:vertical;background:transparent;color:var(--text);font:inherit;font-size:1.05rem;white-space:pre-wrap;word-break:break-word}
+.out mark{background:var(--mark);color:inherit;border-radius:3px}
+.btn{border:1px solid var(--line);background:var(--card);color:var(--text);padding:8px 14px;border-radius:10px;font:inherit;cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+.foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px;flex-wrap:wrap;color:var(--muted);font-size:.85rem}
+.note{margin-top:20px;color:var(--muted);font-size:.9rem}
+</style>
+</head>
+<body>
+<main>
+<h1>Alifbo konvertor</h1>
+<p class="sub">Eski lotin yozuvidagi matnni yangi alifboga o’giring.</p>
+<div class="rules">
+<span>Gʻ gʻ → Ğ ğ</span><span>Oʻ oʻ → Ö ö</span><span>Sh sh → Ş ş</span><span>Ch ch → Ç ç</span><span>Ng ng — o’zgarmaydi</span>
+</div>
+<div class="bar">
+<div class="seg" role="group" aria-label="Yo’nalish">
+<button id="dFwd" class="on">Eski → Yangi</button>
+<button id="dRev">Yangi → Eski</button>
+</div>
+<button class="btn" id="clear">Tozalash</button>
+</div>
+<div class="grid">
+<div class="panel"><label for="inp">Asl matn</label><textarea id="inp" placeholder="Matnni shu yerga kiriting..." spellcheck="false"></textarea></div>
+<div class="panel"><label>Natija</label><div class="out" id="out" aria-live="polite"></div>
+<div class="foot"><span id="stat">0 ta almashtirish</span><button class="btn primary" id="copy">Nusxa olish</button></div></div>
+</div>
+<p class="note">Eslatma: matn avtomatik o’giriladi. Turli apostrof belgilari (o', o‘, o’, oʻ, o`) bir xil tanib olinadi. Tutuq belgisi (masalan, ma’no) o’zgarmaydi. Kam uchraydigan s+h, c+h alohida o’qiladigan so’zlarda natijani tekshirib chiqing.</p>
+</main>
+<script>
+(function(){
+var inp=document.getElementById('inp'),out=document.getElementById('out'),stat=document.getElementById('stat');
+var dir='fwd';
+var APOS="[\u02BB\u02BC'\u2018\u2019`\u00B4\u02B9\u2032]";
+var fwdMap={O:'Ö',o:'ö',G:'Ğ',g:'ğ'};
+var revMap={'Ö':'O\u02BB','ö':'o\u02BB','Ğ':'G\u02BB','ğ':'g\u02BB','Ş':'Sh','ş':'sh','Ç':'Ch','ç':'ch'};
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function convert(t){
+  var n=0,mark=function(s){n++;return '\u0001'+s+'\u0002';};
+  if(dir==='fwd'){
+    t=t.replace(new RegExp('([OoGg])'+APOS,'g'),function(m,c){return mark(fwdMap[c]);});
+    t=t.replace(/([Ss])[Hh]/g,function(m,c){return mark(c==='S'?'Ş':'ş');});
+    t=t.replace(/([Cc])[Hh]/g,function(m,c){return mark(c==='C'?'Ç':'ç');});
+  }else{
+    t=t.replace(/[ÖöĞğŞşÇç]/g,function(c){return mark(revMap[c]);});
+  }
+  return {html:esc(t).replace(/\u0001/g,'<mark>').replace(/\u0002/g,'</mark>'),n:n};
+}
+function plain(){return out.textContent;}
+function run(){var r=convert(inp.value);out.innerHTML=r.html;stat.textContent=r.n+' ta almashtirish';}
+inp.addEventListener('input',run);
+function setDir(d){dir=d;document.getElementById('dFwd').classList.toggle('on',d==='fwd');document.getElementById('dRev').classList.toggle('on',d==='rev');run();}
+document.getElementById('dFwd').onclick=function(){setDir('fwd');};
+document.getElementById('dRev').onclick=function(){setDir('rev');};
+document.getElementById('clear').onclick=function(){inp.value='';run();inp.focus();};
+document.getElementById('copy').onclick=function(){
+  var b=this,t=plain();
+  function done(){b.textContent='Nusxa olindi ✓';setTimeout(function(){b.textContent='Nusxa olish';},1500);}
+  try{navigator.clipboard.writeText(t).then(done,fallback);}catch(e){fallback();}
+  function fallback(){var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();try{document.execCommand('copy');done();}catch(e){}document.body.removeChild(a);}
+};
+run();
+})();
+</script>
+</body>
+</html>
